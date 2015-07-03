@@ -27,6 +27,7 @@ import glob
 from subprocess import Popen, PIPE
 from sklearn.mixture import GMM
 from time import time, sleep
+import joblib
 
 import htkmfc
 
@@ -133,6 +134,7 @@ intervals = {
     for name, group in intervals.groupby(intervals.f_id)
 }
 
+
 _cache = {}
 def get_frames(bname, warpfreq):
     """Return concatenated vad frames from bname
@@ -153,6 +155,15 @@ def get_frames(bname, warpfreq):
     return _cache[key]
 
 
+with verb_print('loading cache', VERBOSE):
+    if not path.exists('cache'):
+        for bname in bnames:
+            for warpfreq in warpfreqs:
+                get_frames(bname, warpfreq)
+        joblib.dump(_cache, 'cache', compress=0)
+    else:
+        _cache = joblib.load('cache')
+
 
 alphas = {bname: 1.0 for bname in bnames}
 alphas_prev = alphas.copy()
@@ -163,7 +174,7 @@ while True:
         break
     print it
     it += 1
-    with verb_print('loading frames', VERBOSE):
+    with verb_print('stacking frames', VERBOSE):
         frames = np.vstack(
             (get_frames(bname, alphas[bname])
              for bname in bnames)
