@@ -155,6 +155,7 @@ while True:
     if it > max_iter:
         break
     print it
+    it += 1
     with verb_print('loading frames', VERBOSE):
         frames = np.vstack(
             (get_frames(bname, alphas[bname])
@@ -169,8 +170,10 @@ while True:
     alphas_prev = alphas.copy()
     with verb_print('calculating log-likelihoods', VERBOSE):
         for bname in bnames:
-            scores = [(warpfreq, gmm.score(get_frames(bname, warpfreq)))
-                      for warpfreq in warpfreqs]
+            scores = [
+                (warpfreq, gmm.score(get_frames(bname, warpfreq)))
+                for warpfreq in warpfreqs
+            ]
             min_score = min(scores, key=lambda x: x[1])[0]
             alphas[bname] = min_score
     if alphas == alphas_prev:
