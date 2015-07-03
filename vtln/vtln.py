@@ -55,7 +55,7 @@ english_wavdir = path.join(zerospeechdir, 'english_wav')
 english_files = sorted(glob.glob(path.join(english_wavdir, '*.wav')))
 english_vtln_dir = path.join(zerospeechdir, 'english_vtln')
 
-config_dir = path.join(os.environ['HOME'], 'projects', 'ldtw', 'htk_configs')
+config_dir = path.join(zerospeechdir, 'htk_configs')
 bnames = [path.splitext(path.basename(wavfile))[0]
           for wavfile in english_files]
 
@@ -88,7 +88,8 @@ WARPFREQ = {:.2f}"""
             fout.write(msg.format(warpfreq))
 
 
-if not path.exists(english_vtln_dir):
+REBUILD = False
+if REBUILD or not path.exists(english_vtln_dir):
     with verb_print('extracting mfccs', VERBOSE):
         # async pump everything through HCopy
         for warpfreq in warpfreqs:
@@ -96,7 +97,10 @@ if not path.exists(english_vtln_dir):
                 english_vtln_dir,
                 'warp_freq_{:.2f}'.format(warpfreq)
             )
-            config_file = '../htk_configs/htk_config_{:.2f}'.format(warpfreq)
+            config_file = path.join(
+                config_dir,
+                'htk_config_{:.2f}'.format(warpfreq)
+            )
             print warpfreq
             try:
                 os.makedirs(subdir)
@@ -112,6 +116,7 @@ if not path.exists(english_vtln_dir):
             while running_procs:
                 for proc in running_procs:
                     retcode = proc.poll()
+
                     if retcode is not None:
                         proc.stdout.close()
 
@@ -146,6 +151,8 @@ def get_frames(bname, warpfreq):
             r.append(mfc[start_fr:end_fr])
         _cache[key] = np.vstack(r)
     return _cache[key]
+
+
 
 alphas = {bname: 1.0 for bname in bnames}
 alphas_prev = alphas.copy()
