@@ -60,6 +60,17 @@ config_dir = path.join(zerospeechdir, 'htk_configs')
 bnames = [path.splitext(path.basename(wavfile))[0]
           for wavfile in english_files]
 
+def bname2speaker(bname):
+    return bname[:3]
+
+speakers = sorted(set([bname2speaker(bname)
+                       for bname in bnames]))
+
+bnames_per_speaker = {
+    speaker: [bname for bname in bnames if bname2speaker(bname) == speaker]
+    for speaker in speakers
+}
+
 
 with verb_print('writing config files', VERBOSE):
     try:
@@ -158,14 +169,20 @@ def get_frames(bname, warpfreq):
 with verb_print('loading cache', VERBOSE):
     if not path.exists('cache'):
         for bname in bnames:
+            print bname
             for warpfreq in warpfreqs:
+                print ' ', warpfreq
                 get_frames(bname, warpfreq)
-        joblib.dump(_cache, 'cache', compress=0)
+        with verb_print('dumping cache', VERBOSE):
+            joblib.dump(_cache, 'cache', compress=0)
     else:
         _cache = joblib.load('cache')
 
 
-alphas = {bname: 1.0 for bname in bnames}
+
+
+# alphas = {bname: 1.0 for bname in bnames}
+alphas = {speaker: 1.0 for speaker in speakers}
 alphas_prev = alphas.copy()
 max_iter = 10
 it = 0
@@ -176,8 +193,9 @@ while True:
     it += 1
     with verb_print('stacking frames', VERBOSE):
         frames = np.vstack(
-            (get_frames(bname, alphas[bname])
-             for bname in bnames)
+            (get_frames(bname, alphas[speaker])
+             for speaker in speakers
+             for bname in bnames_per_speaker[speaker])
         )
     with verb_print('fitting gmm', VERBOSE):
         gmm = GMM(
@@ -187,15 +205,29 @@ while True:
 
     alphas_prev = alphas.copy()
     with verb_print('calculating log-likelihoods', VERBOSE):
-        for bname in bnames:
-            scores = [
-                (warpfreq, gmm.score(get_frames(bname, warpfreq)))
-                for warpfreq in warpfreqs
-            ]
-            min_score = min(scores, key=lambda x: x[1])[0]
-            alphas[bname] = min_score
-    if alphas == alphas_prev:
-        break
+        for speaker in speakers:
+            scores = []
+            for warpfreq in warpfreqs:
+                frames = np.vstack(
+                    (get_frames(bname, warpfreq))
+                    for bname in bnames_per_speaker[speaker]
+                )
+                score = np.exp(gmm.score(frames)).mean()
+                scores.append((warpfreq, score))
+            best_alpha = max(scores, key=lambda x: x[1])[0]
+            alphas[speaker] = best_alpha
 
-for bname, warpfreq in alphas.iteritems():
-    print bname, warpfreq
+        # for bname in bnames:
+        #     scores = [
+        #         (warpfreq,
+        #          np.exp(gmm.score(get_frames(bname, warpfreq))).mean())
+        #         for warpfreq in warpfreqs
+        #     ]
+        #     min_score = min(scores, key=lambda x: x[1])[0]
+        #     alphas[bname] = min_score
+    # if alphas == alphas_prev:
+    #     break
+    break
+
+for speaker in sorted(speakers):
+    print speaker, alphas[speaker]
