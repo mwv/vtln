@@ -178,19 +178,13 @@ with verb_print('loading cache', VERBOSE):
     else:
         _cache = joblib.load('cache')
 
-
-
-
-# alphas = {bname: 1.0 for bname in bnames}
 alphas = {speaker: 1.0 for speaker in speakers}
 alphas_prev = alphas.copy()
 max_iter = 10
-it = 0
+it = 1
 while True:
-    if it > max_iter:
-        break
-    print it
-    it += 1
+    print 'iteration:', it
+
     with verb_print('stacking frames', VERBOSE):
         frames = np.vstack(
             (get_frames(bname, alphas[speaker])
@@ -217,17 +211,23 @@ while True:
             best_alpha = max(scores, key=lambda x: x[1])[0]
             alphas[speaker] = best_alpha
 
-        # for bname in bnames:
-        #     scores = [
-        #         (warpfreq,
-        #          np.exp(gmm.score(get_frames(bname, warpfreq))).mean())
-        #         for warpfreq in warpfreqs
-        #     ]
-        #     min_score = min(scores, key=lambda x: x[1])[0]
-        #     alphas[bname] = min_score
-    # if alphas == alphas_prev:
-    #     break
-    break
+    with open('ideal_warpfreq_iteration_{}.txt'.format(it), 'w') as fout:
+        fout.write('speaker,filename,warpfreq\n')
+        for speaker in sorted(speakers):
+            for filename in bnames_per_speaker[speaker]:
+                fout.write('{},{},{}\n'.format(
+                    speaker, filename, alphas[speaker])
+                )
 
-for speaker in sorted(speakers):
-    print speaker, alphas[speaker]
+    if alphas == alphas_prev:
+        break
+    if it >= max_iter:
+        break
+
+    it += 1
+
+with open('ideal_warpfreq_final.txt', 'w') as fout:
+    fout.write('speaker,filename,warpfreq\n')
+    for speaker in sorted(speakers):
+        for filename in bnames_per_speaker[speaker]:
+            fout.write('{},{},{}\n'.format(speaker, filename, alphas[speaker]))
